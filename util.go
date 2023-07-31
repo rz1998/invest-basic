@@ -2,7 +2,7 @@ package basic
 
 import (
 	"fmt"
-	"github.com/rz1998/invest/basic/types/investBasic"
+	"github.com/rz1998/invest-basic/types/investBasic"
 	"regexp"
 	"strings"
 )
