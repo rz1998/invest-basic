@@ -1,10 +1,12 @@
-package basic
+package invest
 
 import (
 	"fmt"
 	"github.com/rz1998/invest-basic/types/investBasic"
 	"regexp"
+	"sort"
 	"strings"
+	"time"
 )
 
 // GetCodeProduct 获取品种代码， 股票代码不变，期货只取英文部分
@@ -111,4 +113,116 @@ func IsCodeFutureProduct(code string) bool {
 	} else {
 		return true
 	}
+}
+
+// MergeContract2IdxMD 合约行情合并成指数行情 uniqueCode合约唯一码
+func MergeContract2IdxMD(uniqueCode string, mdCons [][]*investBasic.SMDTick) []*investBasic.SMDTick {
+	var results []*investBasic.SMDTick
+	// 合并排序
+	if mdCons == nil {
+		return results
+	}
+	// 合并之后排序
+	var mds []*investBasic.SMDTick
+	for _, mdCon := range mdCons {
+		mds = append(mds, mdCon...)
+	}
+	sort.Slice(mds, func(i, j int) bool {
+		return mds[i].Timestamp < mds[j].Timestamp
+	})
+	//
+	nameFieldSums := []string{"Val", "NegVal"}
+	mapMD := make(map[string]*investBasic.SMDTick)
+	var volCache int64
+	for _, md := range mds {
+		// 更新行情
+		mapMD[md.UniqueCode] = md
+
+		// 数据充足才开始计算
+		if len(mapMD) < len(mdCons) {
+			volCache += md.Vol
+			continue
+		}
+
+		mdMembers := make([]interface{}, len(mapMD))
+		i := 0
+		for _, v := range mapMD {
+			mdMembers[i] = v
+			i++
+		}
+		mapIdx := SumStructs(nameFieldSums, mdMembers)
+		priceWAVG := WAvgStruct("NegVal", "PriceLatest", mdMembers)
+		// 处理初始成交量
+		vol := md.Vol
+		if volCache > 0 {
+			vol += volCache
+			volCache = 0
+		}
+		mdIdx := investBasic.SMDTick{
+			UniqueCode:  uniqueCode,
+			DayTrade:    md.DayTrade,
+			Timestamp:   md.Timestamp,
+			PriceLatest: int64(priceWAVG),
+			Num:         md.Num,
+			Vol:         vol,
+			Val:         mapIdx["Val"],
+			NegVal:      mapIdx["NegVal"],
+		}
+		results = append(results, &mdIdx)
+	}
+	return results
+}
+
+// MergeTick2Minute tick转换为分钟行情
+func MergeTick2Minute(mdTicks []*investBasic.SMDTick) []*investBasic.SMDTick {
+	var result []*investBasic.SMDTick
+	var highDaily, lowDaily int64
+	arrayTicks := make([]interface{}, len(mdTicks))
+	for i, md := range mdTicks {
+		arrayTicks[i] = md
+	}
+	arraySliced := SliceTimeSeries("Timestamp", 1*time.Minute, arrayTicks)
+	nameFieldSums := []string{"Vol", "NegVal"}
+	result = make([]*investBasic.SMDTick, len(arraySliced))
+	for i, array := range arraySliced {
+		md, ok := MergeTimeSeries(nameFieldSums, array).(*investBasic.SMDTick)
+		if ok {
+			result[i] = md
+			md.PriceOpen = array[0].(*investBasic.SMDTick).PriceLatest
+			//最高最低价
+			var priceHigh, priceLow, priceLatest, minuteHigh, minuteLow int64
+			for _, data := range array {
+				md0 := data.(*investBasic.SMDTick)
+				priceHigh = md0.PriceHigh
+				priceLow = md0.PriceLow
+				priceLatest = md0.PriceLatest
+				// 初始化
+				if highDaily == 0 {
+					highDaily = priceHigh
+				}
+				if lowDaily == 0 {
+					lowDaily = priceLow
+				}
+				// 最高最低有变化时，取最高最低
+				if highDaily < priceHigh {
+					highDaily = priceHigh
+					minuteHigh = priceHigh
+				}
+				if lowDaily > priceLow {
+					lowDaily = priceLow
+					minuteLow = priceLow
+				}
+				// 分钟内最新价更新
+				if minuteHigh == 0 || minuteHigh < priceLatest {
+					minuteHigh = priceLatest
+				}
+				if minuteLow == 0 || minuteLow > priceLatest {
+					minuteLow = priceLatest
+				}
+			}
+			md.PriceHigh = minuteHigh
+			md.PriceLow = minuteLow
+		}
+	}
+	return result
 }
