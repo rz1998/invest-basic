@@ -66,31 +66,6 @@ func (secInfoChange SSecInfoChange) InitFromSecInfo(secInfo SSecInfo, date strin
 	return &secInfoChange
 }
 
-// SSignalDataUpdated 数据更新信号
-type SSignalDataUpdated struct {
-	UcData    string `json:"ucData"`
-	Timestamp int64  `json:"timestamp"`
-	Num       int64  `json:"num"`
-}
-
-// SRankHoldNum 机构持仓排名-期货
-type SRankHoldNum struct {
-	// 日期
-	Date string `json:"date" bson:"date"`
-	// 合约
-	Contract string `json:"contract" bson:"contract"`
-	// 排名类型
-	RankType string `json:"rank_type" bson:"rank_type"`
-	// 排名
-	Rank int16 `json:"rank" bson:"rank"`
-	// 中介机构
-	Broker string `json:"broker" bson:"broker"`
-	// 持仓量
-	NumHold int64 `json:"num_hold" bson:"num_hold"`
-	// 持仓变化量
-	NumChange int64 `json:"num_change" bson:"num_change"`
-}
-
 // SMDKindleDailyFuture 日行情-期货
 type SMDKindleDailyFuture struct {
 	// 日期
