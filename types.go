@@ -17,6 +17,7 @@ type ExchangeCD string
 const (
 	SSE   ExchangeCD = "SSE"
 	SZSE  ExchangeCD = "SZSE"
+	BSE   ExchangeCD = "BSE"
 	SHFE  ExchangeCD = "SHFE"
 	CFFEX ExchangeCD = "CFFEX"
 	INE   ExchangeCD = "INE"

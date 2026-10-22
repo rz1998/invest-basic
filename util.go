@@ -1,9 +1,54 @@
-package invest
+/*
+ *                        _oo0oo_
+ *                       o8888888o
+ *                       88" . "88
+ *                       (| -_- |)
+ *                       0\  =  /0
+ *                     ___/`---'\___
+ *                   .' \\|     |// '.
+ *                  / \\|||  :  |||// \
+ *                 / _||||| -:- |||||- \
+ *                |   | \\\  - /// |   |
+ *                | \_|  ''\---/''  |_/ |
+ *                \  .-\__  '-'  ___/-. /
+ *              ___'. .'  /--.--\  `. .'___
+ *           ."" '<  `.___\_<|>_/___.' >' "".
+ *          | | :  `- \`.;`\ _ /`;.`/ - ` : | |
+ *          \  \ `_.   \_ __\ /__ _/   .-` /  /
+ *      =====`-.____`.___ \_____/___.-`___.-'=====
+ *                        `=---='
+ *
+ *
+ *      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *
+ *            佛祖保佑     永不宕机     永无BUG
+ *
+ *        佛曰:
+ *                写字楼里写字间，写字间里程序员；
+ *                程序人员写程序，又拿程序换酒钱。
+ *                酒醒只在网上坐，酒醉还来网下眠；
+ *                酒醉酒醒日复日，网上网下年复年。
+ *                但愿老死电脑间，不愿鞠躬老板前；
+ *                奔驰宝马贵者趣，公交自行程序员。
+ *                别人笑我忒疯癫，我笑自己命太贱；
+ *                不见满街漂亮妹，哪个归得程序员？
+ *
+ * @Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
+ * @Date: 2024-04-08 08:40:11
+ * @LastEditors: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
+ * @LastEditTime: 2024-08-15 20:26:55
+ * @FilePath: /stra/home/rz1998/workspace/github.com/rz1998/invest/investBasic/util.go
+ * @Description:
+ *
+ */
+
+package investBasic
 
 import (
 	"fmt"
-	"github.com/rz1998/invest-basic/types/investBasic"
+	"math"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -19,43 +64,43 @@ func GetCodeProduct(code string) string {
 }
 
 // GetSecInfo 唯一码转换为代码和交易所
-func GetSecInfo(uniqueCode string) (code string, exchangeCD investBasic.ExchangeCD) {
+func GetSecInfo(uniqueCode string) (code string, exchangeCD ExchangeCD) {
 	contents := strings.Split(uniqueCode, ".")
 	if len(contents) > 1 {
-		return contents[0], investBasic.ExchangeCD(contents[1])
+		return contents[0], ExchangeCD(contents[1])
 	} else {
 		return contents[0], ""
 	}
 }
 
 // GetSecType 解析证券类型
-func GetSecType(uniqueCode string) investBasic.TypeSecurity {
+func GetSecType(uniqueCode string) TypeSecurity {
 	code, exchangeCD := GetSecInfo(uniqueCode)
 	switch exchangeCD {
-	case investBasic.SHFE, investBasic.CFFEX, investBasic.INE, investBasic.DCE, investBasic.CZCE:
-		return investBasic.FUTURE
-	case investBasic.SSE:
+	case SHFE, CFFEX, INE, DCE, CZCE:
+		return FUTURE
+	case SSE:
 		if code[:1] == "6" {
-			return investBasic.STOCK
+			return STOCK
 		} else if code[:1] == "5" {
-			return investBasic.FUND
+			return FUND
 		} else if code[:3] == "000" {
-			return investBasic.IDX
+			return IDX
 		} else {
-			return investBasic.BOND
+			return BOND
 		}
-	case investBasic.SZSE:
+	case SZSE:
 		if code[:3] == "399" {
-			return investBasic.IDX
+			return IDX
 		} else if code[:1] == "0" || code[:1] == "2" || code[:1] == "3" {
-			return investBasic.STOCK
+			return STOCK
 		} else if code[:2] == "15" {
-			return investBasic.FUND
+			return FUND
 		} else {
-			return investBasic.BOND
+			return BOND
 		}
 	default:
-		return investBasic.STOCK
+		return STOCK
 	}
 }
 
@@ -80,13 +125,13 @@ func fromCCASS2Std(codeCCASS string) string {
 		fmt.Printf("FromCCASS2Std stopped by unhandled ccass %s\n", codeCCASS)
 		return code
 	}
-	var exchangeCD investBasic.ExchangeCD
+	var exchangeCD ExchangeCD
 	if len(code) == 0 {
 		return code
 	} else if code[:1] == "6" {
-		exchangeCD = investBasic.SSE
+		exchangeCD = SSE
 	} else {
-		exchangeCD = investBasic.SZSE
+		exchangeCD = SZSE
 	}
 	return fmt.Sprintf("%s.%s", code, exchangeCD)
 }
@@ -99,16 +144,38 @@ func FromCCASS2Std(mapCCASS map[string]string, codeCCASS string) string {
 	}
 }
 
-// IsCodeFutureProduct 判断期货代码是否是品种
-/*
- * 是： 品种
- * 否： 合约
- */
-func IsCodeFutureProduct(code string) bool {
-	reg := regexp.MustCompile(`\w+\d+`)
-	if reg.Match([]byte(code)) {
-		return false
+// 把小数精度转换为整数
+func FromFloat(idx float64, accuracy int) int64 {
+	return int64(math.Round(idx * math.Pow10(accuracy)))
+}
+
+// 计算指标中位数
+func CalMedian[T int | int32 | int64 | float32 | float64](data []T) float64 {
+	sort.Slice(data, func(i, j int) bool {
+		return data[i] < data[j]
+	})
+	if len(data)%2 == 0 {
+		// 偶数取中间两个数的均值
+		return (float64(data[len(data)/2-1]) + float64(data[len(data)/2])) / 2
 	} else {
-		return true
+		// 奇数取中间的数
+		return float64(data[len(data)/2])
+	}
+}
+
+func FromMD2Kindle(md *SMDTick) *SMDKindleDailyStock {
+	if md == nil {
+		return nil
+	}
+	return &SMDKindleDailyStock{
+		Date:     md.DayTrade,
+		Code:     md.UniqueCode,
+		Open:     md.PriceOpen,
+		High:     md.PriceHigh,
+		Low:      md.PriceLow,
+		Close:    md.PriceLatest,
+		PreClose: md.PricePreClose,
+		Vol:      md.Vol,
+		Val:      md.Val,
 	}
 }
