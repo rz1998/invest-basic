@@ -64,13 +64,36 @@ func GetCodeProduct(code string) string {
 }
 
 // GetSecInfo 唯一码转换为代码和交易所
+//
+// 后缀接受两种写法, 归一到 Go 交易所码 (SSE/SZSE/BSE):
+//
+//	Go 形式   : 600000.SSE  000001.SZSE  430047.BSE
+//	QMT 形式  : 600000.SH   000001.SZ    430047.BJ
+//
+// 为什么要认 QMT 形式 (2026-10-22, best-shm 后缀统一): best 策略在信号入口
+// 把代码转成 QMT 标准后缀后, 全链路 (持仓 map / 行情 / 报单) 都用 QMT 形式。
+// 本函数是共享库里所有按交易所分支的入口 (GetMinVol / GetTickVol /
+// GetTickPrice / GetVolSellableFromAcPos / GetSecType 都先调它)。不认
+// .SH/.SZ/.BJ 的话, 这些分支全掉进 default: 最小下单量算成 1、tick 算成 1、
+// 可卖量公式走错支 -- 全是静默算错。
+//
+// 大写归一: 后缀大小写不敏感 (QMT 回报告诉我们的是 "SH", 不是 "sh")。
 func GetSecInfo(uniqueCode string) (code string, exchangeCD ExchangeCD) {
 	contents := strings.Split(uniqueCode, ".")
 	if len(contents) > 1 {
-		return contents[0], ExchangeCD(contents[1])
-	} else {
-		return contents[0], ""
+		suffix := strings.ToUpper(contents[1])
+		switch suffix {
+		case "SH":
+			return contents[0], SSE
+		case "SZ":
+			return contents[0], SZSE
+		case "BJ":
+			return contents[0], BSE
+		default:
+			return contents[0], ExchangeCD(contents[1])
+		}
 	}
+	return contents[0], ""
 }
 
 // GetSecType 解析证券类型
